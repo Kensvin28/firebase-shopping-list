@@ -1,54 +1,66 @@
-import {initializeApp} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import {getDatabase, ref, push, remove, onValue} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
-
-const appSettings = {
-    databaseURL: "https://shopping-list-43646-default-rtdb.asia-southeast1.firebasedatabase.app/",
-}
-
-const app = initializeApp(appSettings);
-const database = getDatabase(app);
-const itemsInDB = ref(database, 'items');
-
 const addButton = document.querySelector('#add-button');
 const input = document.querySelector('#input-field');
 const shoppingList = document.querySelector('#shopping-list');
 
-onValue(itemsInDB, (snapshot) => {
-    clearList();
-    if (!snapshot.exists()) {
-        shoppingList.innerHTML = 'No items here yet.';
-        return;
-    }
-    let items = Object.entries(snapshot.val());
+// Load items from localStorage on page load
+window.addEventListener('DOMContentLoaded', () => {
+    loadItemsFromLocalStorage();
+});
 
-    items.forEach(item => {
-        addToList(shoppingList, item);
-    });
-})
+addButton.addEventListener('click',  () => {
+    const inputValue = input.value.trim();
+    if (inputValue === '') return;
 
-addButton.addEventListener('click', () => {
-    const inputValue = input.value;
-    push(itemsInDB, inputValue);
+    const itemID = Date.now().toString(); // Unique ID based on timestamp
+    const items = getItemsFromLocalStorage();
+    items[itemID] = inputValue;
+    saveItemsToLocalStorage(items);
+    addToList(shoppingList, [itemID, inputValue]);
+    loadItemsFromLocalStorage();
     clearInput(input);
 });
 
 const addToList = (shoppingList, item) => {
-    let newItem = document.createElement('li');
-    let itemID = item[0];
-    let itemValue = item[1];
+    const [itemID, itemValue] = item;
+    const newItem = document.createElement('li');
     newItem.id = itemID;
     newItem.textContent = itemValue;
     newItem.role = 'button';
     newItem.addEventListener('click', () => {
-        remove(ref(database, 'items/' + itemID));
+        const items = getItemsFromLocalStorage();
+        delete items[itemID];
+        saveItemsToLocalStorage(items)
+        loadItemsFromLocalStorage();
     });
     shoppingList.append(newItem);
-}
+};
 
 const clearList = () => {
     shoppingList.innerHTML = '';
-}
+};
 
 const clearInput = (input) => {
     input.value = '';
-}
+};
+
+const getItemsFromLocalStorage = () => {
+    return JSON.parse(localStorage.getItem('shoppingItems')) || {};
+};
+
+const saveItemsToLocalStorage = (items) => {
+    localStorage.setItem('shoppingItems', JSON.stringify(items));
+};
+
+const loadItemsFromLocalStorage = () => {
+    clearList();
+    const items = getItemsFromLocalStorage();
+    const entries = Object.entries(items);
+
+    if (entries.length === 0) {
+        shoppingList.innerHTML = 'No items here yet.';
+        return;
+    }
+    entries.forEach(item => {
+        addToList(shoppingList, item);
+    });
+};
